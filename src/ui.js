@@ -35,10 +35,226 @@ const UISystem = (function() {
     let selectedChar = null;
     let hoveredBtn = null;
     let notification = null; // { msg, timer, color }
+    let designScale = 1;
+    let designOffsetX = 0;
+    let designOffsetY = 0;
+    const DESIGN_W = 640;
+    const DESIGN_H = 960;
 
     function updateSize(w, h) { W = w; H = h; }
     function setCtx(c) { ctx = c; }
     function getCtx() { return ctx; }
+
+    function syncDesignSpace() {
+        const scale = Math.min(W / DESIGN_W, H / DESIGN_H);
+        designScale = scale;
+        designOffsetX = (W - DESIGN_W * scale) / 2;
+        designOffsetY = (H - DESIGN_H * scale) / 2;
+    }
+
+    function dx(v) { return designOffsetX + v * designScale; }
+    function dy(v) { return designOffsetY + v * designScale; }
+    function ds(v) { return v * designScale; }
+    function inDesignRect(x, y, w, h) {
+        return { x: dx(x), y: dy(y), w: ds(w), h: ds(h) };
+    }
+    function drawFitImage(name, x, y, w, h, mode) {
+        const img = ResManager.getImage(name);
+        if (!img) return false;
+        const box = inDesignRect(x, y, w, h);
+        const rw = img.width || w || 1;
+        const rh = img.height || h || 1;
+        const sx = box.w / rw;
+        const sy = box.h / rh;
+        let dw = box.w;
+        let dh = box.h;
+        let ox = box.x;
+        let oy = box.y;
+        if (mode === 'cover') {
+            const s = Math.max(sx, sy);
+            dw = rw * s;
+            dh = rh * s;
+            ox = box.x + (box.w - dw) / 2;
+            oy = box.y + (box.h - dh) / 2;
+        } else if (mode === 'contain') {
+            const s = Math.min(sx, sy);
+            dw = rw * s;
+            dh = rh * s;
+            ox = box.x + (box.w - dw) / 2;
+            oy = box.y + (box.h - dh) / 2;
+        }
+        ctx.drawImage(img, ox, oy, dw, dh);
+        return true;
+    }
+    function drawImageFit(name, x, y, w, h) {
+        return drawFitImage(name, x, y, w, h, 'contain');
+    }
+    function drawDesignText(text, x, y, color, size, align, bold) {
+        ctx.save();
+        ctx.fillStyle = color || COLORS.text;
+        ctx.font = `${bold ? 'bold ' : ''}${Math.max(10, ds(size || 14))}px "Microsoft YaHei", sans-serif`;
+        ctx.textAlign = align || 'start';
+        ctx.fillText(text, dx(x), dy(y));
+        ctx.restore();
+    }
+    function addDesignButton(x, y, w, h, onClick, text) {
+        const box = inDesignRect(x, y, w, h);
+        buttons.push({ x: box.x, y: box.y, w: box.w, h: box.h, text, onClick, id: buttons.length });
+    }
+    function drawDesignPanel(x, y, w, h, title) {
+        const box = inDesignRect(x, y, w, h);
+        drawPanel(box.x, box.y, box.w, box.h, title);
+    }
+    function drawDesignButton(x, y, w, h, text, color, onClick) {
+        const box = inDesignRect(x, y, w, h);
+        return drawButton(box.x, box.y, box.w, box.h, text, color, onClick);
+    }
+    function drawDesignImageButton(imageName, x, y, w, h, onClick) {
+        const box = inDesignRect(x, y, w, h);
+        const id = buttons.length;
+        if (!drawFitImage(imageName, x, y, w, h, 'contain')) {
+            drawButton(box.x, box.y, box.w, box.h, imageName, COLORS.gold, onClick);
+        }
+        buttons.push({ x: box.x, y: box.y, w: box.w, h: box.h, text: imageName, onClick, id });
+        return id;
+    }
+    function drawDesignImage(name, x, y, w, h, mode) {
+        return drawFitImage(name, x, y, w, h, mode || 'contain');
+    }
+
+    function framePoint(x, y) {
+        return { x: 320 + x, y: 480 - y };
+    }
+
+    function framePointWithOffset(x, y, ox, oy) {
+        return framePoint((ox || 0) + (x || 0), (oy || 0) + (y || 0));
+    }
+
+    function drawFrameImageNode(node) {
+        return drawFrameImageNodeAt(node, 0, 0);
+    }
+
+    function drawFrameImageNodeAt(node, ox, oy) {
+        const img = ResManager.getImage(node.image);
+        if (!img) return false;
+        const p = framePointWithOffset(node.x || 0, node.y || 0, ox, oy);
+        const w = (node.w || img.width || 1) * (node.sx || 1);
+        const h = (node.h || img.height || 1) * (node.sy || 1);
+        return drawDesignImage(node.image, p.x - w / 2, p.y - h / 2, w, h, 'contain');
+    }
+
+    function drawFrameLabelNode(node) {
+        return drawFrameLabelNodeAt(node, 0, 0);
+    }
+
+    function drawFrameLabelNodeAt(node, ox, oy) {
+        const p = framePointWithOffset(node.x || 0, node.y || 0, ox, oy);
+        drawDesignText(node.label || '', p.x, p.y, node.color || '#ffffff', node.fontsize || 20, 'center', !!node.bold);
+    }
+
+    function addFrameButtonNode(node, onClick) {
+        return addFrameButtonNodeAt(node, 0, 0, onClick);
+    }
+
+    function addFrameButtonNodeAt(node, ox, oy, onClick) {
+        const p = framePointWithOffset(node.x || 0, node.y || 0, ox, oy);
+        const w = (node.w || node.width || 100) * (node.sx || 1);
+        const h = (node.h || node.height || 80) * (node.sy || 1);
+        addDesignButton(p.x - w / 2, p.y - h / 2, w, h, onClick, node.name);
+    }
+
+    const HOME_FRAME_IMAGES = [
+        { image: '彩虹', x: -150, y: 218 },
+        { image: '光照', x: 79, y: -155, sx: 2.5625, sy: 6.125 },
+        { image: '文字_福地', x: -195, y: 61 },
+        { image: '文字_古墓', x: -237, y: -122 },
+        { image: 'tile', x: 0, y: 363 },
+        { image: '文字_聚贤堂', x: 14, y: 142 },
+        { image: '文字_无限塔', x: 273, y: 121 },
+        { image: '文字_练功房', x: 202, y: -187 },
+    ];
+
+    const HOME_FRAME_LABELS = [
+        { label: '区', x: 284, y: 360, fontsize: 20, color: '#ffffff', bold: true },
+        { label: '用户中心', x: 246, y: 446, fontsize: 20, color: '#ffffff', bold: true },
+    ];
+
+    const HOME_FRAME_BUTTONS = [
+        { name: '聚贤堂', scene: 'char_select', x: 12, y: 45, w: 114, h: 74, sx: 2, sy: 2 },
+        { name: '福地', scene: 'fudi', x: -240, y: 26, w: 140, h: 100 },
+        { name: '通天塔', scene: 'tongtian', x: 238, y: 86, w: 107, h: 121, sy: 1.4375 },
+        { name: '古墓', scene: 'gumu', x: -192, y: -154, w: 114, h: 114, sy: 1.4375 },
+        { name: '比武厅', scene: 'biwu', x: 173, y: -244, w: 151, h: 100, sy: 1.4375 },
+        { name: '奖励', scene: 'daily_reward', x: -265, y: 274, w: 120, h: 120, sx: 0.75, sy: 0.75, normal: '首页奖励' },
+        { name: '奇遇', scene: 'qiyu', x: -52, y: 274, w: 120, h: 120, sx: 0.75, sy: 0.75, normal: '奇遇' },
+        { name: '商城', scene: 'shop', x: 52, y: 271, w: 120, h: 120, sx: 0.75, sy: 0.75, normal: '商城1' },
+        { name: '活动', scene: 'notice', x: 153, y: 275, w: 120, h: 120, sx: 0.75, sy: 0.75, normal: '首页活动图标无字' },
+        { name: '每日任务', scene: 'daily_reward', x: -156, y: 275, w: 114, h: 114, sx: 0.75, sy: 0.75, normal: '任务' },
+    ];
+
+    const TOP_FRAME_IMAGES = [
+        { image: 'gonggao_6', x: 0, y: 398 },
+        { image: 'gonggao', x: 0, y: 446.5 },
+        { image: 'gonggao_5', x: -273, y: 447.5 },
+        { image: '等级经验条', x: -197, y: 369 },
+        { image: '经验条_2', x: -165, y: 355 },
+        { image: '经验条_1', x: -165, y: 355.5 },
+        { image: 'yinyuanbao', x: 72, y: 356 },
+        { image: 'jinyuanbao', x: 72, y: 390 },
+        { image: '文字_体', x: 213, y: 390 },
+        { image: 'c6', x: -30, y: 391 },
+    ];
+
+    const BOTTOM_FRAME_BUTTONS = [
+        { name: '首页', normal: '首页', selected: '首页2', scene: 'main', x: -263, y: -430, w: 106, h: 100 },
+        { name: '阵容', normal: '阵容', selected: '阵容2', scene: 'team', x: -158, y: -430, w: 106, h: 100 },
+        { name: '江湖', normal: '文字_江湖2', selected: '江湖2', scene: 'chapter_select', x: -50, y: -430, w: 106, h: 100 },
+        { name: '包裹', normal: '包裹', selected: '包裹2', scene: 'bag', x: 54, y: -430, w: 106, h: 100 },
+        { name: '招募', normal: '招募', selected: '招募1', scene: 'card_draw', x: 159, y: -425, w: 106, h: 100 },
+        { name: '其他', normal: '其他', selected: '其他2', scene: 'more_menu', x: 262, y: -430, w: 106, h: 100 },
+    ];
+
+    function drawOriginalTopBar() {
+        TOP_FRAME_IMAGES.forEach(drawFrameImageNode);
+        const maxExp = Math.max(1, G.等级 * 100);
+        const exp = Math.max(0, Math.min(G.经验 || 0, maxExp));
+        drawFrameLabelNode({ label: String(G.等级 || 1), x: -272, y: 367, fontsize: 34, color: '#ffffff', bold: true });
+        drawFrameLabelNode({ label: '帮主', x: -230, y: 390, fontsize: 24, color: '#ffffff', bold: true });
+        drawFrameLabelNode({ label: String(exp), x: -172.5, y: 355.5, fontsize: 18, color: '#ffffff', bold: true });
+        drawFrameLabelNode({ label: '/', x: -166.5, y: 355, fontsize: 18, color: '#ffffff', bold: true });
+        drawFrameLabelNode({ label: String(maxExp), x: -143, y: 355.5, fontsize: 18, color: '#ffffff', bold: true });
+        drawFrameLabelNode({ label: String(G['金钱'] || 0), x: 101.5, y: 357, fontsize: 24, color: '#ffffff', bold: true });
+        drawFrameLabelNode({ label: String(G['元宝'] || 0), x: 101, y: 391, fontsize: 24, color: '#ffffff', bold: true });
+        drawFrameLabelNode({ label: String(G['体力'] || 0), x: 258, y: 390.5, fontsize: 24, color: '#ffffff', bold: true });
+        drawFrameLabelNode({ label: '/', x: 265, y: 391, fontsize: 24, color: '#ffffff', bold: true });
+        drawFrameLabelNode({ label: String(G['体力上限'] || 0), x: 291, y: 391, fontsize: 24, color: '#ffffff', bold: true });
+        addDesignButton(26, 46, 94, 72, function() { currentScreen = 'master_upgrade'; }, '帮主');
+    }
+
+    function drawOriginalPageShell(title, selectedScene, onBack) {
+        syncDesignSpace();
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        drawFitImage('bg_1', 0, 0, DESIGN_W, DESIGN_H, 'cover');
+        drawOriginalTopBar();
+        drawOriginalBottomNav(selectedScene || '');
+        if (title) drawDesignText(title, 320, 126, COLORS.gold, 24, 'center', true);
+        if (onBack) {
+            drawDesignImage('地图返回按钮', 20, 220, 100, 82, 'contain');
+            addDesignButton(0, 200, 150, 120, onBack, '返回');
+        }
+    }
+
+    function drawOriginalBottomNav(selectedScene) {
+        drawFrameImageNode({ image: 'gonggao_4', x: 0, y: -429.5 });
+        BOTTOM_FRAME_BUTTONS.forEach(item => {
+            const image = item.scene === selectedScene ? (item.selected || item.normal) : item.normal;
+            if (!drawFrameImageNode({ image, x: item.x, y: item.y })) {
+                drawFrameLabelNode({ label: item.name, x: item.x, y: item.y - 10, fontsize: 20, color: COLORS.gold, bold: true });
+            }
+            addFrameButtonNode(item, () => currentScreen = item.scene);
+        });
+    }
 
     // ============ 辅助渲染函数 ============
     function drawPanel(x, y, w, h, title) {
@@ -192,6 +408,24 @@ const UISystem = (function() {
 
     // ============ 主界面 ============
     function renderMainScreen() {
+        {
+        syncDesignSpace();
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        drawFitImage('首页背景', 0, 0, DESIGN_W, DESIGN_H, 'cover');
+        HOME_FRAME_IMAGES.forEach(drawFrameImageNode);
+        HOME_FRAME_LABELS.forEach(drawFrameLabelNode);
+
+        drawOriginalTopBar();
+
+        HOME_FRAME_BUTTONS.forEach(item => {
+            if (item.normal) drawFrameImageNode({ image: item.normal, x: item.x, y: item.y, sx: item.sx || 1, sy: item.sy || 1 });
+            addFrameButtonNode(item, () => currentScreen = item.scene);
+        });
+        addDesignButton(170, 596, 300, 156, () => currentScreen = 'chapter_select', '江湖');
+        drawOriginalBottomNav('main');
+        return;
+        }
         ctx.fillStyle = COLORS.bg;
         ctx.fillRect(0, 0, W, H);
 
@@ -378,6 +612,35 @@ const UISystem = (function() {
 
     // ============ 关卡选择界面 ============
     function renderChapterSelect() {
+        {
+        syncDesignSpace();
+        drawOriginalPageShell('', 'chapter_select', () => { currentScreen = 'main'; });
+        drawFitImage('江湖关卡背景_1', 0, 126, DESIGN_W, 660, 'cover');
+        drawDesignText('关卡列表', 320, 124, COLORS.gold, 24, 'center', true);
+        const chapters = D.CHAPTERS;
+        let y = 162;
+        chapters.forEach((ch, i) => {
+            if (y > 746) return;
+            const unlocked = G.等级 >= ch.level || (G.关卡进度 && G.关卡进度[ch.id]);
+            ctx.save();
+            ctx.fillStyle = unlocked ? 'rgba(245, 226, 181, 0.82)' : 'rgba(55, 45, 36, 0.74)';
+            ctx.strokeStyle = unlocked ? '#8c5b21' : '#4c3a28';
+            ctx.lineWidth = ds(2);
+            roundRect(dx(24), dy(y), ds(592), ds(76), ds(4));
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+            drawDesignText(`${i + 1}. ${ch.name}`, 42, y + 28, unlocked ? COLORS.gold : COLORS.textDim, 16, 'left', true);
+            drawDesignText(ch.desc || '', 42, y + 52, unlocked ? '#2d2116' : '#666', 11, 'left', false);
+            drawDesignText(`Lv.${ch.level}`, 534, y + 30, unlocked ? COLORS.blue : '#666', 14, 'center', true);
+            if (unlocked) {
+                drawDesignImage('进入挑战按钮_1', 472, y + 8, 126, 58, 'contain');
+                addDesignButton(468, y + 4, 136, 66, () => startChapter(ch), ch.name);
+            }
+            y += 84;
+        });
+        return;
+        }
         ctx.fillStyle = COLORS.bg;
         ctx.fillRect(0, 0, W, H);
 
@@ -693,6 +956,49 @@ const UISystem = (function() {
 
     // ============ 阵容管理界面 ============
     function renderTeamScreen() {
+        {
+        drawOriginalPageShell('', 'team');
+        const teamSlots = G.队伍上限 || G.闃熶紞涓婇檺 || 3;
+        const teamList = G.队伍 || G.闃熶紞 || [];
+        const charMap = G.人物 || G.浜虹墿 || {};
+        const slots = [
+            [-210, 185], [-70, 185], [70, 185], [210, 185],
+            [-210, 12], [-70, 12], [70, 12], [210, 12],
+        ];
+        const unlockLevels = [0, 0, 5, 11, 21, 31, 41, 51];
+        slots.forEach(function(pos, i) {
+            const p = framePoint(pos[0], pos[1]);
+            drawDesignImage('头像凹槽', p.x - 58, p.y - 58, 116, 116, 'contain');
+            const charId = teamList[i];
+            if (charId) {
+                const char = charMap[charId] || {};
+                drawDesignText(charId.slice(0, 4), p.x, p.y + 6, COLORS.gold, 14, 'center', true);
+                drawDesignText('Lv.' + (char.等级 || char.绛夌骇 || 1), p.x, p.y + 34, COLORS.blue, 12, 'center', true);
+            } else if (i < teamSlots) {
+                drawDesignImage('加号', p.x - 28, p.y - 28, 56, 56, 'contain');
+            } else {
+                drawDesignImage('锁', p.x - 28, p.y - 28, 56, 56, 'contain');
+                drawDesignText(unlockLevels[i] + '级开启', p.x, p.y + 80, '#ff0000', 22, 'center', true);
+            }
+            addDesignButton(p.x - 52, p.y - 52, 104, 104, function() {
+                if (charId) selectedChar = charId;
+                else showNotification(i < teamSlots ? '请选择弟子上阵' : unlockLevels[i] + '级开启', i < teamSlots ? COLORS.gold : COLORS.red);
+            }, 'slot-' + i);
+        });
+        drawFrameLabelNode({ label: '点击弟子头像可查看其详细信息。', x: 0.5, y: 260, fontsize: 24, color: '#000000' });
+        drawFrameImageNode({ image: '调序按钮_1', x: -149.5, y: -179 });
+        drawFrameImageNode({ image: '布阵按钮2_1', x: 149.5, y: -179 });
+        addFrameButtonNode({ name: '调序', x: -149.5, y: -179, w: 150, h: 80 }, function() { showNotification('调序', COLORS.gold); });
+        addFrameButtonNode({ name: '布阵', x: 149.5, y: -179, w: 150, h: 80 }, function() { showNotification('布阵已保存', COLORS.green); GameEngine.saveGame(); });
+        drawDesignImage('gonggao_3', 0, 710, 640, 84, 'cover');
+        drawDesignText(`上阵 ${teamList.length}/${teamSlots}`, 320, 675, COLORS.gold, 20, 'center', true);
+        Object.keys(charMap).slice(0, 4).forEach((charId, i) => {
+            const x = 34 + i * 150;
+            drawDesignPanel(x, 718, 126, 50, '');
+            drawDesignText(charId.slice(0, 4), x + 63, 750, COLORS.text, 14, 'center', true);
+        });
+        return;
+        }
         ctx.fillStyle = COLORS.bg;
         ctx.fillRect(0, 0, W, H);
 
@@ -753,6 +1059,30 @@ const UISystem = (function() {
 
     // ============ 包裹界面 ============
     function renderBagScreen() {
+        {
+        drawOriginalPageShell('', 'bag');
+        const bagItems = [
+            { label: '装备', image: '装备背景', fallback: '侠士袍图标', x: -200, y: 80 },
+            { label: '武功', image: '武功按钮_1', fallback: '推荐武功', x: 0, y: 80 },
+            { label: '魂魄', image: '魂魄按钮1_2', fallback: '魂魄兑换字', x: 200, y: 80 },
+            { label: '道具', image: '道具按钮_1', fallback: '体力丹图标', x: -200, y: -100 },
+            { label: '卦石', image: '卦石按钮1', fallback: '卦石系统_罗盘', x: 0, y: -100 },
+            { label: '材料', image: '材料页签_1', fallback: '橙色材料包图标', x: 200, y: -100 },
+        ];
+        bagItems.forEach(function(item) {
+            const p = framePoint(item.x, item.y);
+            const ok = drawDesignImage(item.image, p.x - 74, p.y - 74, 148, 148, 'contain') ||
+                drawDesignImage(item.fallback, p.x - 54, p.y - 54, 108, 108, 'contain');
+            if (!ok) {
+                drawDesignPanel(p.x - 68, p.y - 68, 136, 136, '');
+            }
+            drawDesignText(item.label, p.x, p.y + 72, '#4f0000', 24, 'center', true);
+            addDesignButton(p.x - 68, p.y - 68, 136, 136, function() {
+                showNotification(item.label, COLORS.gold);
+            }, item.label);
+        });
+        return;
+        }
         ctx.fillStyle = COLORS.bg;
         ctx.fillRect(0, 0, W, H);
 
@@ -1584,6 +1914,35 @@ const UISystem = (function() {
 
     // ============ 封面/加载界面 ============
     function renderCoverScreen() {
+        {
+        syncDesignSpace();
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        drawFitImage('封面2', 0, 0, DESIGN_W, DESIGN_H, 'cover');
+        drawDesignImage('霸气江湖logo2', 85, 88, 470, 260, 'contain');
+        drawDesignImage('边框底纹', 20, 675, 600, 62, 'contain');
+        drawDesignImage('边框细线', 70, 660, 500, 22, 'contain');
+        drawDesignImage('边框细线', 70, 728, 500, 22, 'contain');
+        drawDesignText('霸气001', 320, 712, '#ffffff', 32, 'center', true);
+        drawDesignText('点击选区', 505, 712, '#00ff00', 24, 'center', true);
+
+        const prog = Math.max(0, Math.min(1, ResManager.getProgress()));
+        drawDesignImage('进度条2', 160, 770, 320, 30, 'contain');
+        ctx.save();
+        ctx.fillStyle = '#6f0d0d';
+        roundRect(dx(178), dy(778), ds(284 * prog), ds(12), ds(6));
+        ctx.fill();
+        ctx.restore();
+        drawDesignText(`正在更新资源... ${Math.floor(prog * 100)}%`, 320, 812, '#ffffff', 18, 'center', true);
+
+        drawDesignImage('进入游戏背景2', 48, 828, 544, 88, 'contain');
+        drawDesignImage('进入游戏文字', 190, 844, 260, 48, 'contain');
+        addDesignButton(0, 0, 640, 960, function() {
+            currentScreen = 'main';
+            AudioManager.playBGM();
+        }, '进入游戏');
+        return;
+        }
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, W, H);
 
@@ -1625,6 +1984,28 @@ const UISystem = (function() {
 
     // ============ 抽卡界面 ============
     function renderCardDrawScreen() {
+        {
+        drawOriginalPageShell('', 'card_draw');
+        drawDesignImage('招募背景', 0, 140, 640, 530, 'cover');
+        drawDesignImage('圆月', 470, 150, 220, 220, 'contain');
+        drawDesignImage('卡牌背光', 320, 500, 180, 180, 'contain');
+        drawDesignImage('六脉神剑_9', 320, 500, 180, 180, 'contain');
+        drawDesignImage('星_1', 320, 500, 180, 180, 'contain');
+        drawDesignImage('六脉神剑_12', 320, 500, 180, 180, 'contain');
+        drawDesignImage('爆气_1', 320, 500, 220, 220, 'contain');
+        drawDesignImage('太极剑法_19', 320, 500, 220, 220, 'contain');
+        drawDesignImage('吸血_2', 320, 500, 220, 220, 'contain');
+        drawDesignImage('文字_必出紫卡', 320, 320, 240, 72, 'contain');
+        drawDesignImage('文字_白绿卡', 140, 320, 240, 72, 'contain');
+        drawDesignImage('文字_蓝紫卡', 500, 320, 240, 72, 'contain');
+        drawDesignImage('招募按钮2_1', 130, 822, 150, 80, 'contain');
+        drawDesignImage('招募按钮2_1', 320, 822, 150, 80, 'contain');
+        drawDesignImage('招募按钮2_1', 510, 822, 150, 80, 'contain');
+        addDesignButton(58, 778, 145, 92, function() { showNotification('普通招募', COLORS.green); }, '普通招募');
+        addDesignButton(245, 778, 150, 92, function() { showNotification('高级招募', COLORS.blue); }, '高级招募');
+        addDesignButton(435, 778, 150, 92, function() { showNotification('至尊招募', COLORS.purple); }, '至尊招募');
+        return;
+        }
         ctx.fillStyle = COLORS.bg;
         ctx.fillRect(0, 0, W, H);
         drawPanel(5, 5, W - 10, 50, '抽卡 - 招募弟子');

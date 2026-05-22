@@ -79,7 +79,7 @@ var ResManager = (function() {
         if (loadedImages[name]) return loadedImages[name];
         // 再尝试按需加载
         var fn = nameToFile[name];
-        if (fn && !loadedImages._pending) {
+        if (fn) {
             // 标记避免重复加载
             if (!loadedImages._pending) loadedImages._pending = {};
             if (!loadedImages._pending[name]) {
