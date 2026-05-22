@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta content="telephone=no" name="format-detection">
+    <meta name="full-screen" content="true">
+    <meta name="screen-orientation" content="portrait">
+    <meta name="x5-fullscreen" content="true">
+    <meta name="360-fullscreen" content="true">
+    <title>霸气江湖 威力加强版 - 单机H5版</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        #gameCanvas {
+            display: block;
+            image-rendering: auto;
+            touch-action: manipulation;
+        }
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #D4A854;
+            font-size: 20px;
+            text-align: center;
+            z-index: 1000;
+        }
+        #loading .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(212,168,84,0.3);
+            border-top-color: #D4A854;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        <div>霸气江湖 加载中...</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script src="src/engine.js"></script>
+    <script src="src/data.js"></script>
+    <script src="src/resmgr.js"></script>
+    <script src="src/audio.js"></script>
+    <script src="src/battle.js"></script>
+    <script src="src/ui.js"></script>
+
+    <script>
+    (function() {
+        'use strict';
+
+        const E = GameEngine;
+        const U = UISystem;
+
+        // ============ 初始化 ============
+        function init() {
+            // 初始化资源管理器和音效
+            ResManager.init();
+            AudioManager.init();
+
+            E.initCanvas();
+            E.loadGame();  // 必须加载存档数据
+            U.updateSize(E.W, E.H);
+            U.setCtx(E.ctx);
+
+            // 注册场景
+            E.registerScene('main', {
+                render: function() { U.render(); },
+                update: function(dt) { U.update(dt); },
+                onClick: function(x, y) { U.onClick(x, y); },
+                onTouchStart: function(x, y) { U.onClick(x, y); },
+                onResize: function(w, h) { U.updateSize(w, h); },
+            });
+
+            E.switchScene('main');
+
+            // 设置封面为初始页面
+            U.currentScreen = 'cover';
+
+            // 资源加载完成后可自动进入（封面提供手动进入按钮）
+            ResManager.onReady(() => {
+                // 封面有进入按钮，不用自动切换
+            });
+
+            // 体力自动恢复
+            setInterval(() => {
+                if (E.G.体力 < E.G.体力上限) {
+                    E.G.体力 = Math.min(E.G.体力 + 1, E.G.体力上限);
+                }
+            }, 60000); // 每分钟恢复1点
+
+            // 自动保存
+            setInterval(() => {
+                E.saveGame();
+            }, 30000);
+
+            // 隐藏loading
+            document.getElementById('loading').style.display = 'none';
+
+            // 检查是否需要初始化数据
+            if (Object.keys(E.G.人物).length === 0) {
+                U.initializeDemoData();
+                E.saveGame();
+            }
+
+            // 初始化每日奖励状态
+            if (!E.G.每日奖励已领) E.G.每日奖励已领 = '';
+        }
+
+        // 游戏循环
+        function gameLoop(timestamp) {
+            const dt = Math.min((timestamp - (gameLoop._last || timestamp)) / 1000, 0.1);
+            gameLoop._last = timestamp;
+
+            U.update(dt);
+            U.render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 启动
+        window.addEventListener('DOMContentLoaded', () => {
+            init();
+            gameLoop._last = performance.now();
+            requestAnimationFrame(gameLoop);
+        });
+
+        // 移动端适配 - 防止双击缩放
+        document.addEventListener('dblclick', e => e.preventDefault());
+
+        // 防止iOS橡皮筋效果
+        document.body.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+    })();
+    </script>
+</body>
+</html>
