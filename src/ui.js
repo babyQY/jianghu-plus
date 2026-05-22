@@ -613,32 +613,7 @@ const UISystem = (function() {
     // ============ 关卡选择界面 ============
     function renderChapterSelect() {
         {
-        syncDesignSpace();
-        drawOriginalPageShell('', 'chapter_select', () => { currentScreen = 'main'; });
-        drawFitImage('江湖关卡背景_1', 0, 126, DESIGN_W, 660, 'cover');
-        drawDesignText('关卡列表', 320, 124, COLORS.gold, 24, 'center', true);
-        const chapters = D.CHAPTERS;
-        let y = 162;
-        chapters.forEach((ch, i) => {
-            if (y > 746) return;
-            const unlocked = G.等级 >= ch.level || (G.关卡进度 && G.关卡进度[ch.id]);
-            ctx.save();
-            ctx.fillStyle = unlocked ? 'rgba(245, 226, 181, 0.82)' : 'rgba(55, 45, 36, 0.74)';
-            ctx.strokeStyle = unlocked ? '#8c5b21' : '#4c3a28';
-            ctx.lineWidth = ds(2);
-            roundRect(dx(24), dy(y), ds(592), ds(76), ds(4));
-            ctx.fill();
-            ctx.stroke();
-            ctx.restore();
-            drawDesignText(`${i + 1}. ${ch.name}`, 42, y + 28, unlocked ? COLORS.gold : COLORS.textDim, 16, 'left', true);
-            drawDesignText(ch.desc || '', 42, y + 52, unlocked ? '#2d2116' : '#666', 11, 'left', false);
-            drawDesignText(`Lv.${ch.level}`, 534, y + 30, unlocked ? COLORS.blue : '#666', 14, 'center', true);
-            if (unlocked) {
-                drawDesignImage('进入挑战按钮_1', 472, y + 8, 126, 58, 'contain');
-                addDesignButton(468, y + 4, 136, 66, () => startChapter(ch), ch.name);
-            }
-            y += 84;
-        });
+        renderJianghuChapterList();
         return;
         }
         ctx.fillStyle = COLORS.bg;
@@ -682,10 +657,88 @@ const UISystem = (function() {
     }
 
     function startChapter(chapter) {
-        G.体力 = Math.max(0, G.体力 - 5);
-        currentScreen = 'battle_prep';
-        // Store chapter info for battle
+        window._jianghuChapter = chapter;
+        window._jianghuStage = 0;
+        currentScreen = 'jianghu_detail';
+    }
+
+    function renderJianghuChapterList() {
+        syncDesignSpace();
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        drawFitImage('bg_1', 0, 0, DESIGN_W, DESIGN_H, 'cover');
+        drawFitImage('江湖关卡背景_1', 0, 126, DESIGN_W, 660, 'cover');
+        drawOriginalTopBar();
+        drawOriginalBottomNav('chapter_select');
+        drawDesignText('江湖关卡', 320, 124, COLORS.gold, 24, 'center', true);
+        drawDesignText('选择章节', 320, 150, '#ead7ad', 13, 'center', false);
+
+        const chapters = D.CHAPTERS;
+        let y = 178;
+        chapters.forEach((ch, i) => {
+            if (y > 742) return;
+            const unlocked = (G.等级 || 0) >= ch.level || (G.关卡进度 && G.关卡进度[ch.id]);
+            ctx.save();
+            ctx.fillStyle = unlocked ? 'rgba(48, 31, 14, 0.82)' : 'rgba(24, 18, 12, 0.78)';
+            ctx.strokeStyle = unlocked ? '#b8860b' : '#5a4630';
+            ctx.lineWidth = ds(2);
+            roundRect(dx(24), dy(y), ds(592), ds(76), ds(4));
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+            drawDesignText(ch.name, 44, y + 27, unlocked ? COLORS.gold : COLORS.textDim, 16, 'left', true);
+            drawDesignText(ch.desc || '', 44, y + 51, unlocked ? '#ead7ad' : '#666', 11, 'left', false);
+            drawDesignText('Lv.' + ch.level, 530, y + 30, unlocked ? COLORS.blue : '#666', 14, 'center', true);
+            if (unlocked) {
+                drawDesignImage('进入挑战按钮_1', 470, y + 8, 126, 58, 'contain');
+                addDesignButton(468, y + 4, 136, 66, () => { window._jianghuChapter = ch; window._jianghuStage = 0; currentScreen = 'jianghu_detail'; }, ch.name);
+            }
+            y += 84;
+        });
+    }
+
+    function startJianghuStage(chapter, stageIndex) {
+        G.体力 = Math.max(0, (G.体力 || 0) - 5);
         window._currentChapter = chapter;
+        window._currentStage = stageIndex || 0;
+        currentScreen = 'battle_prep';
+    }
+
+    function renderJianghuDetail() {
+        const chapter = window._jianghuChapter || D.CHAPTERS[0];
+        const currentStage = window._jianghuStage || 0;
+        syncDesignSpace();
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        drawFitImage('bg_1', 0, 0, DESIGN_W, DESIGN_H, 'cover');
+        drawFitImage('江湖关卡背景_1', 0, 126, DESIGN_W, 660, 'cover');
+        drawOriginalTopBar();
+        drawOriginalBottomNav('chapter_select');
+        drawDesignImage('地图返回按钮', 20, 218, 96, 84, 'contain');
+        addDesignButton(0, 190, 150, 130, () => { currentScreen = 'chapter_select'; }, '返回');
+        drawDesignText(chapter.name, 320, 126, COLORS.gold, 24, 'center', true);
+        drawDesignText(chapter.desc || '', 320, 154, '#ead7ad', 13, 'center', false);
+
+        const stages = Math.max(1, chapter.stages || 10);
+        for (let i = 0; i < Math.min(stages, 8); i++) {
+            const x = 60 + (i % 2) * 272;
+            const y = 244 + Math.floor(i / 2) * 100;
+            const open = i <= currentStage;
+            ctx.save();
+            ctx.fillStyle = open ? 'rgba(48, 31, 14, 0.82)' : 'rgba(24, 18, 12, 0.78)';
+            ctx.strokeStyle = open ? '#b8860b' : '#5a4630';
+            ctx.lineWidth = ds(2);
+            roundRect(dx(x), dy(y), ds(252), ds(86), ds(6));
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+            drawDesignText('第' + (i + 1) + '关', x + 22, y + 30, open ? COLORS.gold : COLORS.textDim, 18, 'left', true);
+            drawDesignText(open ? '可挑战' : '未开启', x + 22, y + 58, open ? '#ead7ad' : '#666', 13, 'left', false);
+            if (open) {
+                drawDesignImage('进入挑战按钮_1', x + 142, y + 18, 96, 44, 'contain');
+                addDesignButton(x + 138, y + 12, 108, 58, () => startJianghuStage(chapter, i), 'stage-' + i);
+            }
+        }
     }
 
     // ============ 战斗准备/战斗界面 ============
@@ -958,9 +1011,11 @@ const UISystem = (function() {
     function renderTeamScreen() {
         {
         drawOriginalPageShell('', 'team');
-        const teamSlots = G.队伍上限 || G.闃熶紞涓婇檺 || 3;
-        const teamList = G.队伍 || G.闃熶紞 || [];
-        const charMap = G.人物 || G.浜虹墿 || {};
+        const teamSlots = G.队伍上限 || 3;
+        G.队伍 = G.队伍 || [];
+        G.人物 = G.人物 || {};
+        const teamList = G.队伍;
+        const charMap = G.人物;
         const slots = [
             [-210, 185], [-70, 185], [70, 185], [210, 185],
             [-210, 12], [-70, 12], [70, 12], [210, 12],
@@ -974,6 +1029,7 @@ const UISystem = (function() {
                 const char = charMap[charId] || {};
                 drawDesignText(charId.slice(0, 4), p.x, p.y + 6, COLORS.gold, 14, 'center', true);
                 drawDesignText('Lv.' + (char.等级 || char.绛夌骇 || 1), p.x, p.y + 34, COLORS.blue, 12, 'center', true);
+                drawDesignText('点击可下阵', p.x, p.y + 62, COLORS.textDim, 10, 'center', false);
             } else if (i < teamSlots) {
                 drawDesignImage('加号', p.x - 28, p.y - 28, 56, 56, 'contain');
             } else {
@@ -981,8 +1037,28 @@ const UISystem = (function() {
                 drawDesignText(unlockLevels[i] + '级开启', p.x, p.y + 80, '#ff0000', 22, 'center', true);
             }
             addDesignButton(p.x - 52, p.y - 52, 104, 104, function() {
-                if (charId) selectedChar = charId;
-                else showNotification(i < teamSlots ? '请选择弟子上阵' : unlockLevels[i] + '级开启', i < teamSlots ? COLORS.gold : COLORS.red);
+                if (charId) {
+                    if (selectedChar && selectedChar !== charId) {
+                        const a = teamList.indexOf(selectedChar);
+                        const b = teamList.indexOf(charId);
+                        if (a >= 0 && b >= 0) {
+                            const tmp = teamList[a];
+                            teamList[a] = teamList[b];
+                            teamList[b] = tmp;
+                            GameEngine.saveGame();
+                            showNotification('阵位已交换', COLORS.green);
+                        } else {
+                            selectedChar = charId;
+                        }
+                    } else {
+                        selectedChar = charId;
+                        showNotification('已选中: ' + charId, COLORS.gold);
+                    }
+                } else if (i < teamSlots) {
+                    showNotification('请选择左侧弟子上阵', COLORS.gold);
+                } else {
+                    showNotification(unlockLevels[i] + '级开启', COLORS.red);
+                }
             }, 'slot-' + i);
         });
         drawFrameLabelNode({ label: '点击弟子头像可查看其详细信息。', x: 0.5, y: 260, fontsize: 24, color: '#000000' });
@@ -995,7 +1071,19 @@ const UISystem = (function() {
         Object.keys(charMap).slice(0, 4).forEach((charId, i) => {
             const x = 34 + i * 150;
             drawDesignPanel(x, 718, 126, 50, '');
-            drawDesignText(charId.slice(0, 4), x + 63, 750, COLORS.text, 14, 'center', true);
+            drawDesignText(charId.slice(0, 4), x + 48, 748, COLORS.text, 14, 'center', true);
+            addDesignButton(x, 718, 126, 50, function() {
+                if (teamList.includes(charId)) {
+                    teamList.splice(teamList.indexOf(charId), 1);
+                    showNotification('已下阵', COLORS.green);
+                } else if (teamList.length < teamSlots) {
+                    teamList.push(charId);
+                    showNotification('已上阵', COLORS.green);
+                } else {
+                    showNotification('上阵位已满', COLORS.red);
+                }
+                GameEngine.saveGame();
+            }, 'char-' + i);
         });
         return;
         }
@@ -2259,64 +2347,87 @@ const UISystem = (function() {
     // ============ 图鉴界面 ============
     function renderTujianScreen() {
         if (!window._tujianTab) window._tujianTab = 'char';
-        ctx.fillStyle = COLORS.bg;
+        syncDesignSpace();
+        ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, W, H);
-        drawPanel(5, 5, W - 10, 50, '图鉴');
-        drawButton(10, 60, 60, 35, '← 返回', COLORS.textDim, () => { currentScreen = 'main'; });
+        drawFitImage('bg_1', 0, 0, DESIGN_W, DESIGN_H, 'cover');
+        drawOriginalTopBar();
+        drawOriginalBottomNav('more_menu');
+        drawDesignText('图鉴', 320, 124, COLORS.gold, 24, 'center', true);
 
-        var tabs = ['char','skill','equip'];
-        var tabNames = { char:'弟子图鉴', skill:'武功图鉴', equip:'装备图鉴' };
-        tabs.forEach(function(t,i) {
-            var active = window._tujianTab === t;
-            drawButton(80 + i*100, 60, 90, 35, tabNames[t], active ? COLORS.gold : COLORS.textDim, function() {
-                window._tujianTab = t;
+        const tabs = [
+            { key: 'char', label: '弟子', normal: '弟子按钮_2', selected: '弟子按钮_1', x: -232 },
+            { key: 'equip', label: '装备', normal: '装备按钮_2', selected: '装备按钮_1', x: -96 },
+            { key: 'skill', label: '武功', normal: '武功按钮_2', selected: '武功按钮_1', x: 41 },
+        ];
+        tabs.forEach(function(tab) {
+            const img = window._tujianTab === tab.key ? tab.selected : tab.normal;
+            if (!drawFrameImageNode({ image: img, x: tab.x, y: 327 })) {
+                drawFrameLabelNode({ label: tab.label, x: tab.x, y: 327, fontsize: 20, color: COLORS.gold, bold: true });
+            }
+            addFrameButtonNode({ name: tab.key, x: tab.x, y: 327, w: 114, h: 69 }, function() {
+                window._tujianTab = tab.key;
+                window._tujianItem = null;
             });
         });
 
-        var y = 105;
-        if (window._tujianTab === 'char') {
-            var chars = Object.keys(D.CHARACTERS).filter(function(c) { return c !== '帮主'; });
-            drawText('拥有: ' + Object.keys(G.人物).length + '/' + chars.length, W/2, 100, COLORS.gold, 13, 'center');
-            chars.forEach(function(cid) {
-                if (y + 35 > H - 20) return;
-                var base = D.CHARACTERS[cid];
-                var owned = !!G.人物[cid];
-                var qColor = D.QUALITY.getColor(base.quality||0);
-                ctx.fillStyle = owned ? 'rgba(40,60,30,0.5)' : 'rgba(30,20,10,0.5)';
-                roundRect(15, y, W-30, 30, 5); ctx.fill();
-                drawText((owned ? '✅ ' : '⬜ ') + cid, 30, y+22, owned ? qColor : COLORS.textDim, 13);
-                drawText(D.QUALITY.getName(base.quality||0), W-60, y+22, qColor, 12);
-                y += 36;
-            });
-        } else if (window._tujianTab === 'skill') {
-            var skills = Object.keys(D.SKILLS);
-            drawText('拥有: ' + Object.keys(G.技能).length + '/' + skills.length, W/2, 100, COLORS.gold, 13, 'center');
-            skills.forEach(function(sid) {
-                if (y + 35 > H - 20) return;
-                var sd = D.SKILLS[sid];
-                var owned = !!G.技能[sid];
-                var qColor = D.QUALITY.getColor(sd.quality||0);
-                ctx.fillStyle = owned ? 'rgba(40,60,30,0.5)' : 'rgba(30,20,10,0.5)';
-                roundRect(15, y, W-30, 30, 5); ctx.fill();
-                drawText((owned?'✅ ':'⬜ ')+sd.name, 30, y+22, owned?qColor:COLORS.textDim, 13);
-                drawText(sd.type, W-60, y+22, COLORS.textDim, 11);
-                y += 36;
-            });
-        } else {
-            var equips = Object.keys(D.EQUIPMENT);
-            drawText('拥有: ' + Object.keys(G.装备).length + '/' + equips.length, W/2, 100, COLORS.gold, 13, 'center');
-            equips.forEach(function(eid) {
-                if (y + 35 > H - 20) return;
-                var ed = D.EQUIPMENT[eid];
-                var owned = !!(G.装备[eid] && G.装备[eid].数量>0);
-                var qColor = D.QUALITY.getColor(ed.quality||0);
-                ctx.fillStyle = owned ? 'rgba(40,60,30,0.5)' : 'rgba(30,20,10,0.5)';
-                roundRect(15, y, W-30, 30, 5); ctx.fill();
-                drawText((owned?'✅ ':'⬜ ')+ed.name, 30, y+22, owned?qColor:COLORS.textDim, 13);
-                drawText(ed.slot, W-60, y+22, COLORS.textDim, 11);
-                y += 36;
-            });
-        }
+        const detail = window._tujianTab === 'char'
+            ? {
+                title: '弟子图鉴',
+                items: Object.keys(D.CHARACTERS).filter(c => c !== '帮主').map(cid => {
+                    const data = D.CHARACTERS[cid];
+                    return { id: cid, name: data.name || cid, desc: data.type || '', quality: data.quality || 0, owned: !!G.人物[cid] };
+                })
+            }
+            : window._tujianTab === 'skill'
+            ? {
+                title: '武功图鉴',
+                items: Object.keys(D.SKILLS).map(sid => {
+                    const data = D.SKILLS[sid];
+                    return { id: sid, name: data.name || sid, desc: data.type || '', quality: data.quality || 0, owned: !!G.技能[sid] };
+                })
+            }
+            : {
+                title: '装备图鉴',
+                items: Object.keys(D.EQUIPMENT).map(eid => {
+                    const data = D.EQUIPMENT[eid];
+                    return { id: eid, name: data.name || eid, desc: data.slot || '', quality: data.quality || 0, owned: !!(G.装备[eid] && G.装备[eid].数量 > 0) };
+                })
+            };
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(31, 19, 9, 0.76)';
+        ctx.strokeStyle = 'rgba(139,105,20,0.55)';
+        ctx.lineWidth = ds(2);
+        roundRect(dx(18), dy(160), ds(604), ds(612), ds(6));
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        const ownedCount = detail.items.filter(item => item.owned).length;
+        drawDesignText(detail.title, 320, 188, COLORS.gold, 20, 'center', true);
+        drawDesignText('拥有: ' + ownedCount + '/' + detail.items.length, 320, 214, '#ead7ad', 13, 'center', false);
+
+        detail.items.slice(0, 10).forEach(function(item, i) {
+            const x = 34 + (i % 2) * 292;
+            const y = 238 + Math.floor(i / 2) * 96;
+            const qColor = D.QUALITY.getColor(item.quality || 0);
+            ctx.save();
+            ctx.fillStyle = item.owned ? 'rgba(58, 40, 18, 0.84)' : 'rgba(24, 18, 12, 0.78)';
+            ctx.strokeStyle = item.owned ? '#b8860b' : '#5a4630';
+            ctx.lineWidth = ds(2);
+            roundRect(dx(x), dy(y), ds(272), ds(78), ds(5));
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+            drawDesignText(item.name, x + 16, y + 29, item.owned ? qColor : COLORS.textDim, 15, 'left', true);
+            drawDesignText(item.desc, x + 16, y + 54, item.owned ? '#ead7ad' : '#666', 11, 'left', false);
+            drawDesignText(item.owned ? '已拥有' : D.QUALITY.getName(item.quality || 0), x + 226, y + 31, item.owned ? COLORS.green : qColor, 12, 'center', true);
+            addDesignButton(x, y, 272, 78, function() {
+                window._tujianItem = item;
+                showNotification(item.name, item.owned ? COLORS.green : COLORS.textDim);
+            }, item.id);
+        });
     }
 
     // ============ 排行榜界面 ============
@@ -2462,6 +2573,37 @@ const UISystem = (function() {
                 currentScreen = ev.screen;
             });
             y += 50;
+        });
+
+        const exchange = [
+            { code:'JIANGHU666', reward:'元宝100+金币500', action: function() { G.元宝 += 100; G.金钱 += 500; } , color:COLORS.gold },
+            { code:'BAQI888', reward:'体力丹x3', action: function() { G.体力 = Math.min(G.体力 + 150, G.体力上限); } , color:COLORS.green },
+            { code:'WELCOME', reward:'经验500', action: function() { G.经验 += 500; while (G.经验 >= G.等级 * 100) { G.经验 -= G.等级 * 100; G.等级++; } } , color:COLORS.blue },
+            { code:'VIP999', reward:'招募令x1', action: function() { var ch=Object.keys(D.CHARACTERS).filter(function(c){return c!=='帮主'&&!G.人物[c];}); if(ch.length>0){var nc=ch[Math.floor(Math.random()*ch.length)]; G.人物[nc]={等级:1,技能:[],装备:{},数量:1}; } } , color:COLORS.purple },
+        ];
+        y += 12;
+        drawText('🎁 活动兑换', 20, y, COLORS.gold, 15);
+        y += 24;
+        G.已兑换 = G.已兑换 || [];
+        exchange.forEach(function(item) {
+            if (y + 46 > H - 20) return;
+            const used = G.已兑换.indexOf(item.code) >= 0;
+            ctx.fillStyle = 'rgba(30,20,10,0.7)';
+            roundRect(15, y, W-30, 40, 8); ctx.fill();
+            drawText(item.code, 30, y+17, item.color, 14);
+            drawText(item.reward, 30, y+32, COLORS.textDim, 11);
+            if (!used) {
+                drawButton(W-100, y+6, 70, 28, '兑换', item.color, function() {
+                    if (G.已兑换.indexOf(item.code) >= 0) return;
+                    G.已兑换.push(item.code);
+                    item.action();
+                    GameEngine.saveGame();
+                    showNotification(item.code + ' 兑换成功', item.color);
+                });
+            } else {
+                drawText('已兑换', W-80, y+25, COLORS.textDim, 12);
+            }
+            y += 48;
         });
     }
 
@@ -2651,6 +2793,7 @@ const UISystem = (function() {
             case 'cover': renderCoverScreen(); break;
             case 'main': renderMainScreen(); break;
             case 'chapter_select': renderChapterSelect(); break;
+            case 'jianghu_detail': renderJianghuDetail(); break;
             case 'battle_prep': renderBattlePrep(); break;
             case 'battle': renderBattle(); break;
             case 'team': renderTeamScreen(); break;
