@@ -544,23 +544,29 @@ const UISystem = (function() {
             roundRect(x, defY, 100, 80, 8);
             ctx.stroke();
 
-            drawText(d.name, x + 50, defY + 22, COLORS.red, 12, 'center');
+            // 敌方头像
+            if (!ResManager.drawImage(ctx, d.name, x + 30, defY + 5, 40, 40)) {
+                ctx.fillStyle = '#600';
+                ctx.beginPath(); ctx.arc(x + 50, defY + 25, 18, 0, Math.PI * 2); ctx.fill();
+                drawText('敌', x + 50, defY + 30, '#faa', 11, 'center');
+            }
+            drawText(d.name, x + 50, defY + 58, COLORS.red, 10, 'center');
             // HP bar
-            const hpRatio = d.hp / d.maxHp;
+            var hpRatio = d.hp / d.maxHp;
             ctx.fillStyle = '#333';
-            ctx.fillRect(x + 10, defY + 35, 80, 8);
+            ctx.fillRect(x + 10, defY + 66, 80, 6);
             ctx.fillStyle = hpRatio > 0.5 ? COLORS.green : hpRatio > 0.2 ? COLORS.orange : COLORS.red;
-            ctx.fillRect(x + 10, defY + 35, 80 * hpRatio, 8);
-            drawText(`${d.hp}/${d.maxHp}`, x + 50, defY + 55, '#aaa', 10, 'center');
+            ctx.fillRect(x + 10, defY + 66, 80 * hpRatio, 6);
+            drawText(d.hp + '/' + d.maxHp, x + 50, defY + 79, '#aaa', 9, 'center');
 
             ctx.restore();
         });
 
         // Allied side (bottom)
-        const atkY = H - 180;
-        state.attackers.forEach((a, i) => {
-            const x = 30 + i * (W - 60) / state.attackers.length;
-            const alive = a.hp > 0;
+        var atkY = H - 180;
+        state.attackers.forEach(function(a, i) {
+            var x = 30 + i * (W - 60) / state.attackers.length;
+            var alive = a.hp > 0;
             ctx.save();
             ctx.globalAlpha = alive ? 1 : 0.4;
 
@@ -571,13 +577,19 @@ const UISystem = (function() {
             roundRect(x, atkY, 100, 80, 8);
             ctx.stroke();
 
-            drawText(a.name, x + 50, atkY + 22, COLORS.green, 12, 'center');
-            const hpRatio = a.hp / a.maxHp;
+            // 我方头像
+            if (!ResManager.drawImage(ctx, a.name, x + 30, atkY + 5, 40, 40)) {
+                ctx.fillStyle = '#060';
+                ctx.beginPath(); ctx.arc(x + 50, atkY + 25, 18, 0, Math.PI * 2); ctx.fill();
+                drawText('侠', x + 50, atkY + 30, '#afa', 11, 'center');
+            }
+            drawText(a.name, x + 50, atkY + 58, COLORS.green, 10, 'center');
+            var hpRatio = a.hp / a.maxHp;
             ctx.fillStyle = '#333';
-            ctx.fillRect(x + 10, atkY + 35, 80, 8);
+            ctx.fillRect(x + 10, atkY + 66, 80, 6);
             ctx.fillStyle = hpRatio > 0.5 ? COLORS.green : hpRatio > 0.2 ? COLORS.orange : COLORS.red;
-            ctx.fillRect(x + 10, atkY + 35, 80 * hpRatio, 8);
-            drawText(`${a.hp}/${a.maxHp}`, x + 50, atkY + 55, '#aaa', 10, 'center');
+            ctx.fillRect(x + 10, atkY + 66, 80 * hpRatio, 6);
+            drawText(a.hp + '/' + a.maxHp, x + 50, atkY + 79, '#aaa', 9, 'center');
 
             ctx.restore();
         });
@@ -1717,6 +1729,27 @@ const UISystem = (function() {
         ctx.fillRect(0, 0, W, H);
         drawPanel(5, 5, W - 10, 50, '弟子详情 - ' + charId);
         drawButton(10, 60, 60, 35, '← 返回', COLORS.textDim, function() { currentScreen = 'char_select'; });
+
+        // 角色立绘 - 尝试多个可能的资源名
+        var portraitNames = [charId, 'icon-' + charId.toLowerCase(), 'jishi-juese1', 'jishi-juese2', 'jishi-juese3'];
+        var hasPortrait = false;
+        for (var p = 0; p < portraitNames.length; p++) {
+            if (ResManager.drawImage(ctx, portraitNames[p], W - 130, 65, 120, 160)) {
+                hasPortrait = true; break;
+            }
+        }
+        if (!hasPortrait) {
+            // Fallback: 头像圆
+            ctx.fillStyle = D.QUALITY.getColor(base ? base.quality : 0);
+            ctx.beginPath();
+            ctx.arc(W - 70, 145, 40, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 20px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(charId.charAt(0), W - 70, 153);
+            ctx.textAlign = 'start';
+        }
 
         var y = 105;
         if (base) {

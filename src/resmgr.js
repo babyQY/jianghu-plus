@@ -1,132 +1,106 @@
 /**
- * 霸气江湖 - 资源加载与管理 (内置映射版)
- * 直接嵌入文件名映射，无需fetch，兼容 file:// 协议
+ * 霸气江湖 - 资源管理器 v2（完整映射版）
+ * 1102条资源映射，图片优先渲染
  */
-const ResManager = (function() {
+var ResManager = (function() {
     'use strict';
 
-    // 内置映射表 - 从 source _mapping.txt 提取
-    const BUILTIN_MAP = {
-        '1星':'696D616765_31E6989F.png','2星':'696D616765_32E6989F.png','4星':'696D616765_34E6989F.png',
-        'bg_1':'696D616765_62675F31.png','kuang':'696D616765_6B75616E67.png','jiantou':'696D616765_6A69616E746F75.png',
-        'jinyuanbao':'696D616765_6A696E7975616E62616F.png','loading':'696D616765_6C6F6164696E67.png',
-        'gong':'696D616765_676F6E67.png','fang':'696D616765_66616E67.png','gang':'696D616765_67616E67.png',
-        'exp':'696D616765_657870.png','dengji':'696D616765_64656E676A69.png',
-        'jianghu-bg':'696D616765_6A69616E6768752D6267.png','kp-bg':'696D616765_6B702D6267.png',
-        'leixing':'696D616765_6C656978696E67.png','miaoshu':'696D616765_6D69616F736875.png',
-        'jishi-juese1':'696D616765_6A697368692D6A7565736531.png','jishi-juese2':'696D616765_6A697368692D6A7565736532.png',
-        'jishi-juese3':'696D616765_6A697368692D6A7565736533.png',
-        'anniu1-2':'696D616765_616E6E6975312D32.png','bao':'696D616765_62616F.png',
-        'long':'696D616765_6C6F6E67.png','long-1':'696D616765_6C6F6E672D31.png',
-        'dang':'696D616765_64616E67.png','c6':'696D616765_6336.png',
-        'jianghuxiaoxia':'696D616765_6A69616E6768757869616F786961.png',
-        'gonggao':'696D616765_676F6E6767616F.png',
-    };
-
-    // 动态映射（从 _mapping.txt 补充）
-    let loadedImages = {};
-    let readyCount = 0;
-    let totalCount = 0;
-    let onReadyCallback = null;
-    let isReady = false;
-
-    let effectFrames = {
-        dandao: [], daoguang: [], sudu: [], xuan: [], bang: [], baodian: [], jght: [],
-    };
-
-    function getFilename(name) {
-        return BUILTIN_MAP[name] || null;
-    }
+    var loadedImages = {};
+    var readyCount = 0;
+    var totalCount = 0;
+    var nameToFile = (typeof RES_MAP !== 'undefined') ? RES_MAP : {};
+    var effectFrames = { dandao:[], daoguang:[], sudu:[], xuan:[], bang:[], baodian:[], jght:[] };
+    var onReadyCallback = null;
+    var isReady = false;
 
     function init() {
-        // 使用内置映射直接加载
-        totalCount = Object.keys(BUILTIN_MAP).length;
-        Object.entries(BUILTIN_MAP).forEach(([name, filename]) => {
-            loadImage(name, filename);
-        });
-        // 预加载战斗帧序列
+        // 使用完整 RES_MAP
+        var names = Object.keys(nameToFile);
+        totalCount = names.length;
+        // 只预加载关键资源（常用UI元素），其余的按需加载
+        var keyNames = ['bg_1','kuang','jiantou','jinyuanbao','loading','gong','fang','gang','exp',
+            'dengji','jianghu-bg','kp-bg','leixing','miaoshu','jishi-juese1','jishi-juese2','jishi-juese3',
+            'anniu1-2','bao','long','long-1','dang','c6','jianghuxiaoxia','gonggao',
+            '卡牌水墨背景','布阵背景','首页背景','首页','封面2','边框底纹','底板2','底板3','底板4',
+            '黑色遮罩','白色遮罩','江湖','江湖边','标题栏','血条','血条_2','血槽1'];
+        var toLoad = 0;
+        for (var i = 0; i < keyNames.length; i++) {
+            var fn = nameToFile[keyNames[i]];
+            if (fn) { loadImage(keyNames[i], fn); toLoad++; }
+        }
+        // 预加载战斗特效帧
         preloadEffectFrames();
-        // file:// 下 XHR 不可用，直接依赖内置 BUILTIN_MAP
-    }
-
-    function loadImage(name, filename) {
-        var img = new Image();
-        img.onload = function() {
-            loadedImages[name] = img;
-            readyCount++;
-            checkReady();
-            categorizeEffect(name, img);
-        };
-        img.onerror = function() {
-            readyCount++;
-            checkReady();
-        };
-        img.src = 'assets/images/' + filename;
+        // 设置 totalCount 为实际要加载的数量
+        totalCount = toLoad + 40; // +40 for effect frames
     }
 
     function preloadEffectFrames() {
-        var effectNames = [];
-        // dandao 0-6
-        for (var i = 0; i < 7; i++) effectNames.push('dsbf_dandao_' + pad5(i));
-        // daoguang 0-5
-        for (var i = 0; i < 6; i++) effectNames.push('dsbf_daoguang_' + pad5(i));
-        // sudu sequences
-        ['dsbf_sudu01_', 'dsbf_sudu02_', 'dsbf_sudu03_'].forEach(function(p) {
-            for (var i = 0; i < 3; i++) effectNames.push(p + pad5(i));
-        });
-        // xuan
-        effectNames.push('dsbf_xuan_' + pad5(0));
-        // bang
-        effectNames.push('dsbf_bang_' + pad5(0));
-        // baodian sequences
-        ['dsbf_baodian01_', 'dsbf_baodian02_', 'dsbf_baodian03_'].forEach(function(p) {
-            for (var i = 0; i < 10; i++) effectNames.push(p + pad5(i));
-        });
-        // jght 0-11
-        for (var i = 0; i < 12; i++) effectNames.push('jght_' + pad5(i));
-
-        // Try loading each from _mapping (if available) or just try direct filenames
-        effectNames.forEach(function(name) {
-            var filename = getFilename(name);
-            if (filename) {
-                var img = new Image();
-                img.onload = function() {
-                    loadedImages[name] = img;
-                    categorizeEffect(name, img);
-                };
-                img.onerror = function() {};
-                img.src = 'assets/images/' + filename;
+        var patterns = [
+            { prefix:'dsbf_dandao_', count:7, cat:'dandao' },
+            { prefix:'dsbf_daoguang_', count:6, cat:'daoguang' },
+            { prefix:'dsbf_sudu01_', count:3, cat:'sudu' },
+            { prefix:'dsbf_sudu02_', count:3, cat:'sudu' },
+            { prefix:'dsbf_sudu03_', count:3, cat:'sudu' },
+            { prefix:'dsbf_xuan_', count:1, cat:'xuan' },
+            { prefix:'dsbf_bang_', count:1, cat:'bang' },
+            { prefix:'dsbf_baodian01_', count:10, cat:'baodian' },
+            { prefix:'dsbf_baodian02_', count:10, cat:'baodian' },
+            { prefix:'dsbf_baodian03_', count:10, cat:'baodian' },
+            { prefix:'jght_', count:12, cat:'jght' },
+        ];
+        for (var p = 0; p < patterns.length; p++) {
+            var pat = patterns[p];
+            for (var i = 0; i < pat.count; i++) {
+                var name = pat.prefix + ('00000'+i).slice(-5);
+                var fn = getFile(name);
+                if (fn) {
+                    var img = new Image();
+                    img.cat = pat.cat;
+                    img.onload = function() { loadedImages[this._name] = this; categorize(this.cat, this); readyCount++; checkReady(); };
+                    img.onerror = function() { readyCount++; checkReady(); };
+                    img._name = name;
+                    img.src = 'assets/images/' + fn;
+                }
             }
-        });
-    }
-
-    function pad5(n) { return ('00000' + n).slice(-5); }
-
-    function categorizeEffect(name, img) {
-        if (name.indexOf('dandao') >= 0) effectFrames.dandao.push(img);
-        else if (name.indexOf('daoguang') >= 0) effectFrames.daoguang.push(img);
-        else if (name.indexOf('sudu') >= 0) effectFrames.sudu.push(img);
-        else if (name.indexOf('xuan') >= 0) effectFrames.xuan.push(img);
-        else if (name.indexOf('bang') >= 0) effectFrames.bang.push(img);
-        else if (name.indexOf('baodian') >= 0) effectFrames.baodian.push(img);
-        else if (name.indexOf('jght') >= 0) effectFrames.jght.push(img);
-    }
-
-    function checkReady() {
-        if (readyCount >= totalCount && !isReady) {
-            isReady = true;
-            if (onReadyCallback) onReadyCallback();
         }
     }
 
-    function getImage(name) { return loadedImages[name] || null; }
-    function hasImage(name) { return !!loadedImages[name]; }
+    function getFile(name) { return nameToFile[name] || null; }
+
+    function loadImage(name, filename) {
+        var img = new Image();
+        img.onload = function() { loadedImages[name] = img; readyCount++; checkReady(); };
+        img.onerror = function() { readyCount++; checkReady(); };
+        img.src = 'assets/images/' + filename;
+    }
+
+    function getImage(name) {
+        // 先查缓存
+        if (loadedImages[name]) return loadedImages[name];
+        // 再尝试按需加载
+        var fn = nameToFile[name];
+        if (fn && !loadedImages._pending) {
+            // 标记避免重复加载
+            if (!loadedImages._pending) loadedImages._pending = {};
+            if (!loadedImages._pending[name]) {
+                loadedImages._pending[name] = true;
+                var img = new Image();
+                img.onload = function() { loadedImages[name] = img; loadedImages._pending[name] = false; };
+                img.onerror = function() { loadedImages._pending[name] = false; };
+                img.src = 'assets/images/' + fn;
+            }
+        }
+        return null;
+    }
+
+    function categorize(cat, img) { if (effectFrames[cat]) effectFrames[cat].push(img); }
+    function checkReady() { if (readyCount >= totalCount && !isReady) { isReady = true; if (onReadyCallback) onReadyCallback(); } }
 
     function drawImage(ctx, name, x, y, w, h, alpha) {
-        var img = getImage(name);
+        var img = getImage(name) || loadedImages[name];
         if (img) {
             ctx.save();
-            if (alpha !== undefined) ctx.globalAlpha = alpha;
+            if (alpha !== undefined) { ctx.globalAlpha = alpha; }
             ctx.drawImage(img, x, y, w || img.width, h || img.height);
             ctx.restore();
             return true;
@@ -135,10 +109,10 @@ const ResManager = (function() {
     }
 
     function drawImageCentered(ctx, name, cx, cy, w, h, alpha) {
-        var img = getImage(name);
+        var img = getImage(name) || loadedImages[name];
         if (img) {
             ctx.save();
-            if (alpha !== undefined) ctx.globalAlpha = alpha;
+            if (alpha !== undefined) { ctx.globalAlpha = alpha; }
             var dw = w || img.width, dh = h || img.height;
             ctx.drawImage(img, cx - dw/2, cy - dh/2, dw, dh);
             ctx.restore();
@@ -147,24 +121,15 @@ const ResManager = (function() {
         return false;
     }
 
-    function getEffectFrame(category, index) {
-        var frames = effectFrames[category];
-        return (frames && frames.length > 0) ? frames[index % frames.length] : null;
-    }
-
-    function getEffectFrames(category) { return effectFrames[category] || []; }
-
-    function onReady(cb) {
-        onReadyCallback = cb;
-        if (isReady) cb();
-    }
-
-    function getProgress() { return totalCount > 0 ? readyCount / totalCount : 0; }
+    function getEffectFrame(cat, idx) { var f = effectFrames[cat]; return (f && f.length) ? f[idx % f.length] : null; }
+    function getEffectFrames(cat) { return effectFrames[cat] || []; }
+    function onReady(cb) { onReadyCallback = cb; if (isReady) cb(); }
+    function getProgress() { return totalCount > 0 ? Math.min(1, readyCount / totalCount) : 1; }
 
     return {
-        init, onReady, getProgress,
-        getImage, hasImage, drawImage, drawImageCentered,
-        getEffectFrame, getEffectFrames,
-        loadedImages, effectFrames,
+        init: init, onReady: onReady, getProgress: getProgress,
+        getImage: getImage, drawImage: drawImage, drawImageCentered: drawImageCentered,
+        getEffectFrame: getEffectFrame, getEffectFrames: getEffectFrames,
+        loadedImages: loadedImages, effectFrames: effectFrames,
     };
 })();
