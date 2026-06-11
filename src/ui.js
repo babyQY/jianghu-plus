@@ -408,142 +408,34 @@ const UISystem = (function() {
 
     // ============ 主界面 ============
     function renderMainScreen() {
-        {
         syncDesignSpace();
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, W, H);
-        drawFitImage('首页背景', 0, 0, DESIGN_W, DESIGN_H, 'cover');
+
+        // 尝试加载首页背景
+        var bgLoaded = drawFitImage('首页背景', 0, 0, DESIGN_W, DESIGN_H, 'cover');
+        if (!bgLoaded) {
+            // 手绘武侠风格背景
+            var grad = ctx.createLinearGradient(0, 0, 0, H);
+            grad.addColorStop(0, '#0d0500');
+            grad.addColorStop(0.3, '#1a0f05');
+            grad.addColorStop(0.7, '#2d1810');
+            grad.addColorStop(1, '#1a0a00');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+        }
+
         HOME_FRAME_IMAGES.forEach(drawFrameImageNode);
         HOME_FRAME_LABELS.forEach(drawFrameLabelNode);
 
         drawOriginalTopBar();
 
-        HOME_FRAME_BUTTONS.forEach(item => {
+        HOME_FRAME_BUTTONS.forEach(function(item) {
             if (item.normal) drawFrameImageNode({ image: item.normal, x: item.x, y: item.y, sx: item.sx || 1, sy: item.sy || 1 });
-            addFrameButtonNode(item, () => currentScreen = item.scene);
+            addFrameButtonNode(item, function() { currentScreen = item.scene; });
         });
-        addDesignButton(170, 596, 300, 156, () => currentScreen = 'chapter_select', '江湖');
+        addDesignButton(170, 596, 300, 156, function() { currentScreen = 'chapter_select'; }, '江湖');
         drawOriginalBottomNav('main');
-        return;
-        }
-        ctx.fillStyle = COLORS.bg;
-        ctx.fillRect(0, 0, W, H);
-
-        // Background image
-        if (!ResManager.drawImage(ctx, 'jianghu-bg', 0, 0, W, H)) {
-            // Fallback pattern
-            ctx.fillStyle = 'rgba(139, 105, 20, 0.05)';
-            for (let i = 0; i < 5; i++) {
-                const bx = (i * W / 4);
-                ctx.beginPath();
-                ctx.moveTo(bx, 0);
-                ctx.lineTo(bx + 40, H);
-                ctx.lineTo(bx - 40, H);
-                ctx.fill();
-            }
-        }
-
-        // 顶部信息栏
-        const topBarH = 90;
-        drawPanel(5, 5, W - 10, topBarH, '');
-
-        // 头像区域
-        ctx.fillStyle = COLORS.goldDark;
-        ctx.beginPath();
-        ctx.arc(35, 45, 28, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = COLORS.gold;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        drawText('侠', 23, 52, COLORS.gold, 22, 'center');
-
-        // 点击头像去帮主升级
-        buttons.push({ x: 5, y: 5, w: 70, h: 90, text: '帮主', onClick: () => { currentScreen = 'master_upgrade'; }});
-
-        drawText(`帮主 Lv.${G.等级}`, 75, 28, COLORS.gold, 16);
-        const expPercent = G.经验 / (G.等级 * 100);
-        ctx.fillStyle = '#333';
-        ctx.fillRect(75, 35, 150, 8);
-        ctx.fillStyle = COLORS.green;
-        ctx.fillRect(75, 35, 150 * expPercent, 8);
-
-        // 资源
-        drawText(`💰${G.金钱}`, 240, 28, COLORS.gold, 13);
-        drawText(`💎${G.元宝}`, 320, 28, COLORS.orange, 13);
-        drawText(`⚡${G.体力}/${G.体力上限}`, 240, 52, COLORS.blue, 13);
-        drawText(`⭐${G.威望}`, 320, 52, COLORS.purple, 13);
-        drawText(`修${G.修为}`, 400, 52, COLORS.textDim, 12);
-
-        // 7大模块按钮
-        const modules = [
-            { name: '福地', icon: '🎁', desc: '祈福·摇奖·挑战', color: COLORS.goldDark, scene: 'fudi' },
-            { name: '聚贤堂', icon: '👥', desc: '弟子列表', color: COLORS.blue, scene: 'juxian' },
-            { name: '通天塔', icon: '🗼', desc: '爬塔试炼', color: COLORS.purple, scene: 'tongtian' },
-            { name: '古墓', icon: '⚰️', desc: '掉落武功', color: COLORS.orange, scene: 'gumu' },
-            { name: '比武厅', icon: '⚔️', desc: 'PVP对战', color: COLORS.red, scene: 'biwu' },
-            { name: '江湖', icon: '🏔️', desc: '闯关推图', color: COLORS.green, scene: 'jianghu' },
-            { name: '奇遇', icon: '🎪', desc: '随机事件', color: COLORS.gold, scene: 'qiyu' },
-        ];
-
-        const cols = 3;
-        const btnW = (W - 30) / cols;
-        const btnH = 90;
-        const startX = 10;
-        const startY = 105;
-
-        modules.forEach((mod, i) => {
-            const col = i % cols;
-            const row = Math.floor(i / cols);
-            const x = startX + col * (btnW + 5);
-            const y = startY + row * (btnH + 5);
-
-            ctx.save();
-            ctx.fillStyle = 'rgba(30,15,5,0.9)';
-            roundRect(x, y, btnW, btnH, 10);
-            ctx.fill();
-            ctx.strokeStyle = mod.color;
-            ctx.lineWidth = 2;
-            roundRect(x, y, btnW, btnH, 10);
-            ctx.stroke();
-
-            drawText(mod.icon, x + btnW / 2, y + 35, mod.color, 28, 'center');
-            drawText(mod.name, x + btnW / 2, y + 60, COLORS.gold, 16, 'center');
-            drawText(mod.desc, x + btnW / 2, y + 80, COLORS.textDim, 10, 'center');
-            ctx.restore();
-
-            buttons.push({ x, y, w: btnW, h: btnH, text: mod.name, onClick: () => onModuleClick(mod) });
-        });
-
-        // 底部功能按钮 - 两排
-        var bottomBtns = [
-            // 第一排
-            { name:'阵容', icon:'🛡️', scene:'zhenrong' },
-            { name:'包裹', icon:'🎒', scene:'bag' },
-            { name:'抽卡', icon:'🎴', scene:'card_draw' },
-            { name:'扫荡', icon:'⚡', scene:'sweep' },
-            // 第二排
-            { name:'图鉴', icon:'📚', scene:'tujian' },
-            { name:'排行', icon:'🏆', scene:'rank' },
-            { name:'邮件', icon:'📧', scene:'mail' },
-            { name:'活动', icon:'🎪', scene:'notice' },
-            // 第三排
-            { name:'强化', icon:'🔧', scene:'equip_enhance' },
-            { name:'技能', icon:'📖', scene:'skill_upgrade' },
-            { name:'转生', icon:'🔄', scene:'rebirth' },
-            { name:'更多', icon:'⋯', scene:'more_menu' },
-        ];
-
-        var bStartY = startY + 3 * (btnH + 5) + 5;
-        var bBtnW = (W - 25) / 4;
-        var bRowH = 42;
-
-        bottomBtns.forEach(function(btn, i) {
-            var col = i % 4;
-            var row = Math.floor(i / 4);
-            var x = 8 + col * (bBtnW + 3);
-            var y = bStartY + row * (bRowH + 3);
-            drawButton(x, y, bBtnW, bRowH, btn.icon + ' ' + btn.name, COLORS.panelBorder, function() { onBottomBtnClick(btn); });
-        });
     }
 
     function onModuleClick(mod) {
@@ -612,48 +504,7 @@ const UISystem = (function() {
 
     // ============ 关卡选择界面 ============
     function renderChapterSelect() {
-        {
         renderJianghuChapterList();
-        return;
-        }
-        ctx.fillStyle = COLORS.bg;
-        ctx.fillRect(0, 0, W, H);
-
-        drawPanel(5, 5, W - 10, 50, '江湖 - 选择关卡');
-        drawButton(10, 60, 60, 35, '← 返回', COLORS.textDim, () => { currentScreen = 'main'; });
-
-        const chapters = D.CHAPTERS;
-        const scrollY = 100;
-        const chapterH = 55;
-
-        drawPanel(5, scrollY - 5, W - 10, H - scrollY - 5, '');
-
-        chapters.forEach((ch, i) => {
-            const y = scrollY + i * chapterH;
-            if (y > H - 20) return;
-
-            const unlocked = G.等级 >= ch.level || (G.关卡进度 && G.关卡进度[ch.id]);
-            ctx.save();
-            ctx.fillStyle = unlocked ? (i % 2 === 0 ? 'rgba(50,30,10,0.8)' : 'rgba(40,22,8,0.8)') : 'rgba(20,15,10,0.8)';
-            ctx.fillRect(10, y, W - 20, chapterH);
-
-            if (unlocked) {
-                ctx.strokeStyle = 'rgba(139,105,20,0.5)';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(10, y, W - 20, chapterH);
-            }
-
-            drawText(`${i + 1}.`, 20, y + 25, COLORS.gold, 14);
-            drawText(ch.name, 60, y + 20, unlocked ? COLORS.gold : COLORS.textDim, 16);
-            drawText(ch.desc, 60, y + 40, unlocked ? COLORS.textDim : '#555', 11);
-            drawText(`Lv.${ch.level}`, W - 80, y + 25, unlocked ? COLORS.blue : '#555', 13);
-
-            if (unlocked) {
-                drawButton(W - 140, y + 8, 55, 35, '进入', COLORS.gold, () => startChapter(ch));
-            }
-
-            ctx.restore();
-        });
     }
 
     function startChapter(chapter) {
@@ -1009,7 +860,6 @@ const UISystem = (function() {
 
     // ============ 阵容管理界面 ============
     function renderTeamScreen() {
-        {
         drawOriginalPageShell('', 'team');
         const teamSlots = G.队伍上限 || 3;
         G.队伍 = G.队伍 || [];
@@ -1086,68 +936,10 @@ const UISystem = (function() {
             }, 'char-' + i);
         });
         return;
-        }
-        ctx.fillStyle = COLORS.bg;
-        ctx.fillRect(0, 0, W, H);
-
-        drawPanel(5, 5, W - 10, 50, '阵容管理');
-        drawButton(10, 60, 60, 35, '← 返回', COLORS.textDim, () => { currentScreen = 'main'; });
-
-        const teamSlots = G.队伍上限;
-        drawText(`上阵位: ${G.队伍.length}/${teamSlots}`, W / 2, 90, COLORS.gold, 14, 'center');
-
-        // 显示队伍
-        const teamY = 105;
-        drawPanel(10, teamY, W - 20, teamSlots * 70 + 20, '当前队伍');
-
-        for (let i = 0; i < teamSlots; i++) {
-            const y = teamY + 30 + i * 70;
-            const charId = G.队伍[i];
-            if (charId) {
-                const char = G.人物[charId];
-                const base = D.CHARACTERS[charId];
-                ctx.fillStyle = i % 2 === 0 ? 'rgba(50,30,10,0.5)' : 'rgba(40,22,8,0.5)';
-                roundRect(20, y, W - 40, 60, 8);
-                ctx.fill();
-
-                drawText(charId, 35, y + 20, COLORS.gold, 16);
-                if (base) drawText(base.type || '', 35, y + 40, COLORS.textDim, 11);
-                drawText(`Lv.${char.等级 || 1}`, W - 120, y + 20, COLORS.blue, 13);
-            } else {
-                ctx.fillStyle = 'rgba(30,20,10,0.5)';
-                ctx.strokeStyle = 'rgba(139,105,20,0.3)';
-                roundRect(20, y, W - 40, 60, 8);
-                ctx.fill();
-                ctx.stroke();
-                drawText('空位', W / 2, y + 35, COLORS.textDim, 14, 'center');
-            }
-        }
-
-        // 角色列表
-        drawText('已有弟子:', 20, teamY + teamSlots * 70 + 40, COLORS.gold, 13);
-        const charKeys = Object.keys(G.人物);
-        let charY = teamY + teamSlots * 70 + 60;
-        charKeys.forEach(charId => {
-            if (charY + 40 > H - 20) return;
-            const char = G.人物[charId];
-            const inTeam = G.队伍.includes(charId);
-            ctx.fillStyle = inTeam ? 'rgba(50,80,50,0.4)' : 'rgba(30,20,10,0.5)';
-            roundRect(20, charY, W - 40, 35, 6);
-            ctx.fill();
-            drawText(`${charId} ${inTeam ? '(已上阵)' : ''}`, 35, charY + 24, COLORS.text, 13);
-            if (!inTeam && G.队伍.length < G.队伍上限) {
-                drawButton(W - 100, charY + 3, 70, 28, '上阵', COLORS.green, () => {
-                    G.队伍.push(charId);
-                    GameEngine.saveGame();
-                });
-            }
-            charY += 42;
-        });
     }
 
     // ============ 包裹界面 ============
     function renderBagScreen() {
-        {
         drawOriginalPageShell('', 'bag');
         const bagItems = [
             { label: '装备', image: '装备背景', fallback: '侠士袍图标', x: -200, y: 80 },
@@ -1168,59 +960,6 @@ const UISystem = (function() {
             addDesignButton(p.x - 68, p.y - 68, 136, 136, function() {
                 showNotification(item.label, COLORS.gold);
             }, item.label);
-        });
-        return;
-        }
-        ctx.fillStyle = COLORS.bg;
-        ctx.fillRect(0, 0, W, H);
-
-        drawPanel(5, 5, W - 10, 50, '包裹');
-        drawButton(10, 60, 60, 35, '← 返回', COLORS.textDim, () => { currentScreen = 'main'; });
-
-        // Tabs
-        const tabs = ['装备', '技能', '魂魄', '道具'];
-        const tabW = (W - 30) / 4;
-        let itemY = 65;
-
-        for (let i = 0; i < tabs.length; i++) {
-            drawButton(8 + i * tabW, itemY, tabW - 3, 30, tabs[i], COLORS.goldDark);
-        }
-
-        itemY = 105;
-        const items = Object.keys(G.装备).length + Object.keys(G.技能).length + 1;
-        drawText(`共有 ${items} 件物品`, 20, itemY, COLORS.textDim, 12);
-
-        // Show equipment
-        let y = itemY + 20;
-        const equipKeys = Object.keys(G.装备);
-        equipKeys.forEach(id => {
-            if (y + 35 > H - 20) return;
-            const equip = G.装备[id];
-            const equipData = D.EQUIPMENT[id];
-            ctx.fillStyle = 'rgba(30,20,10,0.5)';
-            roundRect(20, y, W - 40, 30, 6);
-            ctx.fill();
-            const name = equipData ? equipData.name : id;
-            const qColor = equipData ? D.QUALITY.getColor(equipData.quality || 0) : '#aaa';
-            drawText(name, 35, y + 22, qColor, 13);
-            drawText(`x${equip.数量 || 1}`, W - 60, y + 22, COLORS.textDim, 12);
-            y += 36;
-        });
-
-        // Show skills
-        const skillKeys = Object.keys(G.技能).slice(0, 10);
-        skillKeys.forEach(id => {
-            if (y + 35 > H - 20) return;
-            const skill = G.技能[id];
-            const skillData = D.SKILLS[id];
-            ctx.fillStyle = 'rgba(30,20,10,0.5)';
-            roundRect(20, y, W - 40, 30, 6);
-            ctx.fill();
-            const name = skillData ? skillData.name : id;
-            const qColor = skillData ? D.QUALITY.getColor(skillData.quality || 0) : '#aaa';
-            drawText(name, 35, y + 22, qColor, 13);
-            drawText(`x${skill.数量 || 1}`, W - 60, y + 22, COLORS.textDim, 12);
-            y += 36;
         });
     }
 
@@ -1246,14 +985,7 @@ const UISystem = (function() {
 
             drawText(item.name, 30, y + 22, COLORS.gold, 15);
             drawText(item.desc, 30, y + 42, COLORS.textDim, 11);
-            const SHOP_ITEMS = [
-        { name: '体力丹', desc: '恢复50点体力', cost: 20, type: '道具', currency: '元宝' },
-        { name: '招募令', desc: '随机招募一名弟子', cost: 100, type: '道具', currency: '元宝' },
-        { name: '橙装碎片袋', desc: '随机橙色装备碎片', cost: 200, type: '道具', currency: '元宝' },
-        { name: '经验圣水', desc: '增加1000经验', cost: 50, type: '道具', currency: '元宝' },
-    ];
-
-    const canBuy = G.元宝 >= item.cost;
+            const canBuy = G.元宝 >= item.cost;
             drawButton(W - 90, y + 10, 70, 35, `💎${item.cost}`, canBuy ? COLORS.orange : '#555', canBuy ? () => {
                 if (G.元宝 >= item.cost) {
                     G.元宝 -= item.cost;
@@ -2002,77 +1734,97 @@ const UISystem = (function() {
 
     // ============ 封面/加载界面 ============
     function renderCoverScreen() {
-        {
         syncDesignSpace();
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, W, H);
-        drawFitImage('封面2', 0, 0, DESIGN_W, DESIGN_H, 'cover');
-        drawDesignImage('霸气江湖logo2', 85, 88, 470, 260, 'contain');
+
+        // 尝试加载封面背景
+        var bgLoaded = drawFitImage('封面2', 0, 0, DESIGN_W, DESIGN_H, 'cover');
+        if (!bgLoaded) {
+            // 武侠风格渐变背景
+            var grad = ctx.createLinearGradient(0, 0, 0, H);
+            grad.addColorStop(0, '#1a0a00');
+            grad.addColorStop(0.3, '#2d1810');
+            grad.addColorStop(0.6, '#1a0f05');
+            grad.addColorStop(1, '#0d0500');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+
+            // 装饰性边框
+            ctx.strokeStyle = '#8B6914';
+            ctx.lineWidth = ds(3);
+            ctx.strokeRect(dx(15), dy(15), ds(DESIGN_W - 30), ds(DESIGN_H - 30));
+            ctx.strokeStyle = 'rgba(139, 105, 20, 0.3)';
+            ctx.lineWidth = ds(1);
+            ctx.strokeRect(dx(25), dy(25), ds(DESIGN_W - 50), ds(DESIGN_H - 50));
+        }
+
+        // Logo区域
+        var logoLoaded = drawDesignImage('霸气江湖logo2', 85, 88, 470, 260, 'contain');
+        if (!logoLoaded) {
+            drawDesignText('霸 气 江 湖', 320, 180, '#FFD700', 48, 'center', true);
+            drawDesignText('威 力 加 强 版', 320, 240, '#D4A854', 24, 'center', true);
+            // 装饰线
+            ctx.strokeStyle = '#8B6914';
+            ctx.lineWidth = ds(2);
+            ctx.beginPath();
+            ctx.moveTo(dx(120), dy(205));
+            ctx.lineTo(dx(520), dy(205));
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(dx(120), dy(265));
+            ctx.lineTo(dx(520), dy(265));
+            ctx.stroke();
+        }
+
+        // 服务器信息
         drawDesignImage('边框底纹', 20, 675, 600, 62, 'contain');
         drawDesignImage('边框细线', 70, 660, 500, 22, 'contain');
         drawDesignImage('边框细线', 70, 728, 500, 22, 'contain');
         drawDesignText('霸气001', 320, 712, '#ffffff', 32, 'center', true);
         drawDesignText('点击选区', 505, 712, '#00ff00', 24, 'center', true);
 
-        const prog = Math.max(0, Math.min(1, ResManager.getProgress()));
+        // 加载进度条
+        var prog = Math.max(0, Math.min(1, ResManager.getProgress()));
         drawDesignImage('进度条2', 160, 770, 320, 30, 'contain');
         ctx.save();
         ctx.fillStyle = '#6f0d0d';
         roundRect(dx(178), dy(778), ds(284 * prog), ds(12), ds(6));
         ctx.fill();
         ctx.restore();
-        drawDesignText(`正在更新资源... ${Math.floor(prog * 100)}%`, 320, 812, '#ffffff', 18, 'center', true);
+        drawDesignText('正在更新资源... ' + Math.floor(prog * 100) + '%', 320, 812, '#ffffff', 18, 'center', true);
 
-        drawDesignImage('进入游戏背景2', 48, 828, 544, 88, 'contain');
+        // 进入游戏按钮
+        var enterBtnLoaded = drawDesignImage('进入游戏背景2', 48, 828, 544, 88, 'contain');
         drawDesignImage('进入游戏文字', 190, 844, 260, 48, 'contain');
+        if (!enterBtnLoaded) {
+            // 手绘进入按钮
+            var bx = dx(48), by = dy(828), bw = ds(544), bh = ds(88);
+            var btnGrad = ctx.createLinearGradient(bx, by, bx, by + bh);
+            btnGrad.addColorStop(0, '#8B4513');
+            btnGrad.addColorStop(0.5, '#D4A017');
+            btnGrad.addColorStop(1, '#6B3410');
+            ctx.fillStyle = btnGrad;
+            roundRect(bx, by, bw, bh, ds(12));
+            ctx.fill();
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = ds(3);
+            roundRect(bx, by, bw, bh, ds(12));
+            ctx.stroke();
+            drawDesignText('进 入 游 戏', 320, 876, '#FFFFFF', 32, 'center', true);
+        }
         addDesignButton(0, 0, 640, 960, function() {
+            if (Object.keys(G.人物).length === 0) {
+                initializeDemoData();
+                GameEngine.saveGame();
+            }
             currentScreen = 'main';
             AudioManager.playBGM();
         }, '进入游戏');
-        return;
-        }
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, W, H);
-
-        // 加载背景
-        ResManager.drawImage(ctx, 'loading', 0, 0, W, H);
-        ResManager.drawImage(ctx, 'jianghuxiaoxia', W/2 - 120, H/3 - 80, 240, 160);
-
-        // 标题
-        ctx.fillStyle = COLORS.gold;
-        ctx.font = 'bold 28px "Microsoft YaHei",sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('霸气江湖', W/2, H/2 - 20);
-        ctx.fillText('威力加强版', W/2, H/2 + 20);
-        ctx.textAlign = 'start';
-
-        // 加载进度
-        var prog = ResManager.getProgress();
-        var barW = 200, barH = 10;
-        var barX = W/2 - barW/2, barY = H/2 + 60;
-        ctx.fillStyle = '#333';
-        ctx.fillRect(barX, barY, barW, barH);
-        ctx.fillStyle = COLORS.gold;
-        ctx.fillRect(barX, barY, barW * prog, barH);
-
-        ctx.fillStyle = COLORS.textDim;
-        ctx.font = '12px "Microsoft YaHei",sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('加载中... ' + Math.floor(prog * 100) + '%', W/2, barY + 30);
-        ctx.textAlign = 'start';
-
-        // 加载完成后显示进入按钮
-        if (prog >= 0.5) {
-            drawButton(W/2 - 50, H/2 + 100, 100, 40, '进入游戏', COLORS.gold, function() {
-                currentScreen = 'main';
-                AudioManager.playBGM();
-            });
-        }
     }
 
     // ============ 抽卡界面 ============
     function renderCardDrawScreen() {
-        {
         drawOriginalPageShell('', 'card_draw');
         drawDesignImage('招募背景', 0, 140, 640, 530, 'cover');
         drawDesignImage('圆月', 470, 150, 220, 220, 'contain');
@@ -2089,54 +1841,43 @@ const UISystem = (function() {
         drawDesignImage('招募按钮2_1', 130, 822, 150, 80, 'contain');
         drawDesignImage('招募按钮2_1', 320, 822, 150, 80, 'contain');
         drawDesignImage('招募按钮2_1', 510, 822, 150, 80, 'contain');
-        addDesignButton(58, 778, 145, 92, function() { showNotification('普通招募', COLORS.green); }, '普通招募');
-        addDesignButton(245, 778, 150, 92, function() { showNotification('高级招募', COLORS.blue); }, '高级招募');
-        addDesignButton(435, 778, 150, 92, function() { showNotification('至尊招募', COLORS.purple); }, '至尊招募');
-        return;
-        }
-        ctx.fillStyle = COLORS.bg;
-        ctx.fillRect(0, 0, W, H);
-        drawPanel(5, 5, W - 10, 50, '抽卡 - 招募弟子');
-        drawButton(10, 60, 60, 35, '← 返回', COLORS.textDim, function() { currentScreen = 'main'; });
-
-        var drawOptions = [
-            { name: '普通招募', cost: 0, desc: '免费(每日3次)', quality: [0, 2], color: COLORS.green },
-            { name: '高级招募', cost: 50, desc: '消耗50元宝', quality: [1, 3], color: COLORS.blue },
-            { name: '至尊招募', cost: 200, desc: '消耗200元宝 必出橙', quality: [2, 5], color: COLORS.purple },
-        ];
-
-        drawOptions.forEach(function(opt, i) {
-            var y = 110 + i * 90;
-            ctx.fillStyle = 'rgba(30,20,10,0.8)';
-            roundRect(15, y, W - 30, 75, 10);
-            ctx.fill();
-            ctx.strokeStyle = opt.color;
-            ctx.lineWidth = 2;
-            roundRect(15, y, W - 30, 75, 10);
-            ctx.stroke();
-
-            drawText(opt.name, 35, y + 30, opt.color, 18);
-            drawText(opt.desc, 35, y + 52, COLORS.textDim, 12);
-
-            var canDraw = opt.cost === 0 ? true : G.元宝 >= opt.cost;
-            drawButton(W - 90, y + 15, 65, 35, opt.cost === 0 ? '免费' : '💎' + opt.cost, canDraw ? opt.color : '#555', canDraw ? function() {
-                if (opt.cost > 0) G.元宝 -= opt.cost;
-                // 随机角色
-                var chars = Object.keys(D.CHARACTERS).filter(function(c) {
-                    return c !== '帮主' && !G.人物[c] && D.CHARACTERS[c].quality >= opt.quality[0] && D.CHARACTERS[c].quality <= opt.quality[1];
-                });
-                if (chars.length === 0) chars = Object.keys(D.CHARACTERS).filter(function(c) { return c !== '帮主'; });
-                var pick = chars[Math.floor(Math.random() * chars.length)];
-                G.人物[pick] = G.人物[pick] || { 等级: 1, 技能: [], 装备: {}, 数量: 1 };
-                if (!G.人物[pick].技能) G.人物[pick].技能 = [];
-                if (!G.人物[pick].装备) G.人物[pick].装备 = {};
-                emitParticles(W/2, y + 40, 40, opt.color);
-                showNotification('招募到: ' + pick + '!', opt.color);
-                GameEngine.saveGame();
-            } : null);
-        });
-
-        drawText('已有弟子: ' + Object.keys(G.人物).length + ' 位', W/2, 400, COLORS.textDim, 13, 'center');
+        addDesignButton(58, 778, 145, 92, function() {
+            // 普通招募 - 免费，随机获得白/绿品质弟子
+            var pool = Object.keys(D.CHARACTERS).filter(function(c) { return c !== '帮主' && D.CHARACTERS[c].quality <= 1; });
+            if (pool.length === 0) pool = Object.keys(D.CHARACTERS).filter(function(c) { return c !== '帮主'; });
+            var pick = pool[Math.floor(Math.random() * pool.length)];
+            if (!G.人物[pick]) G.人物[pick] = { 等级: 1, 技能: [], 装备: {}, 数量: 1 };
+            G.人物[pick].数量 = (G.人物[pick].数量 || 0) + 1;
+            emitParticles(160, 820, 20, COLORS.green);
+            showNotification('招募到: ' + pick + '!', COLORS.green);
+            GameEngine.saveGame();
+        }, '普通招募');
+        addDesignButton(245, 778, 150, 92, function() {
+            // 高级招募 - 50元宝，随机获得蓝/紫品质弟子
+            if (G.元宝 < 50) { showNotification('元宝不足!', COLORS.red); return; }
+            G.元宝 -= 50;
+            var pool = Object.keys(D.CHARACTERS).filter(function(c) { return c !== '帮主' && D.CHARACTERS[c].quality >= 1 && D.CHARACTERS[c].quality <= 3; });
+            if (pool.length === 0) pool = Object.keys(D.CHARACTERS).filter(function(c) { return c !== '帮主'; });
+            var pick = pool[Math.floor(Math.random() * pool.length)];
+            if (!G.人物[pick]) G.人物[pick] = { 等级: 1, 技能: [], 装备: {}, 数量: 1 };
+            G.人物[pick].数量 = (G.人物[pick].数量 || 0) + 1;
+            emitParticles(320, 820, 30, COLORS.blue);
+            showNotification('招募到: ' + pick + '!', COLORS.blue);
+            GameEngine.saveGame();
+        }, '高级招募');
+        addDesignButton(435, 778, 150, 92, function() {
+            // 至尊招募 - 200元宝，必出橙/红品质
+            if (G.元宝 < 200) { showNotification('元宝不足!', COLORS.red); return; }
+            G.元宝 -= 200;
+            var pool = Object.keys(D.CHARACTERS).filter(function(c) { return c !== '帮主' && D.CHARACTERS[c].quality >= 3; });
+            if (pool.length === 0) pool = Object.keys(D.CHARACTERS).filter(function(c) { return c !== '帮主'; });
+            var pick = pool[Math.floor(Math.random() * pool.length)];
+            if (!G.人物[pick]) G.人物[pick] = { 等级: 1, 技能: [], 装备: {}, 数量: 1 };
+            G.人物[pick].数量 = (G.人物[pick].数量 || 0) + 1;
+            emitParticles(515, 820, 50, COLORS.purple);
+            showNotification('至尊招募: ' + pick + '!', COLORS.purple);
+            GameEngine.saveGame();
+        }, '至尊招募');
     }
 
     // ============ 帮主升级界面 ============
