@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta content="telephone=no" name="format-detection">
+    <meta name="full-screen" content="true">
+    <meta name="screen-orientation" content="portrait">
+    <meta name="x5-fullscreen" content="true">
+    <title>霸气江湖 威力加强版 - 原版单机</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none; user-select: none;
+        }
+        #gameCanvas { display: block; margin: 0 auto; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- 1. 本地运行前置配置（ccConfig / reshost / ac_token） -->
+    <script src="src/local/pre.js"></script>
+
+    <!-- 2. 原版引擎 + 游戏逻辑（cocos2d-html5 + GGet/getRes/dataChange/doProtocol，定义 ac_login_success） -->
+    <script src="src/game_source/game-724.js"></script>
+
+    <!-- 3. 原版 UI/协议资源定义（RES frame/group/protocol） -->
+    <script src="src/game_source/ui-1092.js"></script>
+
+    <!-- 4. 原版游戏数据（关卡 / 转生 / 区服列表） -->
+    <script src="src/game_source/level-1106.js"></script>
+    <script src="src/game_source/relive-1093.js"></script>
+    <script src="src/game_source/zonelist-1029.js"></script>
+
+    <!-- 5. 本地图片清单 -->
+    <script src="src/local/manifest.js"></script>
+
+    <!-- 6. 本地伪服务器（凭空造存档 + 处理 146 协议，无限资源/去充值限制） -->
+    <script src="src/local/server.js"></script>
+
+    <!-- 7. 本地化补丁（资源路径重写 / 账号旁路 / 协议拦截 → LocalServer），必须最后加载以覆盖原版函数 -->
+    <script src="src/local/patch.js"></script>
+</body>
+</html>
