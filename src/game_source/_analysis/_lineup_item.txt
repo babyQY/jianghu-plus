@@ -1,0 +1,4 @@
+=== 阵容界面 lists ===['上阵列表项']
+--- group 上阵列表项 image nodes (name|ds|image) ---
+  icon-guojing | @.图标 | icon-guojing
+  text/number nodes (name|ds):
